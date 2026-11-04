@@ -3,8 +3,23 @@ name = "vyapaar-exec-upstox"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "Upstox v2 execution adapter: exact-decimal REST order placement, order book / positions / margins decoders, and the v2 WebSocket order-update feed"
 
 [dependencies]
-vyapaar-core = { workspace = true }
-serde = { workspace = true }
-thiserror = { workspace = true }
+async-trait.workspace = true
+chrono.workspace = true
+futures.workspace = true
+reqwest.workspace = true
+rust_decimal.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tokio-tungstenite.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+vyapaar-core.workspace = true
+vyapaar-exec-core.workspace = true
+
+[dev-dependencies]
+axum.workspace = true
