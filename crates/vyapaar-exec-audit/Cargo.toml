@@ -3,8 +3,20 @@ name = "vyapaar-exec-audit"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "Hash-chained regulatory audit journal (fsynced append-only JSONL segment WAL + Parquet compaction) and the SEBI Annexure export CLI"
 
 [dependencies]
-vyapaar-core = { workspace = true }
-serde = { workspace = true }
-thiserror = { workspace = true }
+arrow.workspace = true
+chrono.workspace = true
+clap.workspace = true
+hex.workspace = true
+parquet.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+
+[[bin]]
+name = "vyapaar-audit-export"
+path = "src/main.rs"
