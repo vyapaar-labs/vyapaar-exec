@@ -1,0 +1,29 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/vyapaar-exec-core",
+  "crates/vyapaar-exec-auth",
+  "crates/vyapaar-exec-router",
+  "crates/vyapaar-exec-slicer",
+  "crates/vyapaar-exec-audit",
+  "crates/vyapaar-exec-zerodha",
+  "crates/vyapaar-exec-upstox",
+  "crates/vyapaar-exec-angelone",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "AGPL-3.0"
+repository = "https://github.com/vyapaar-labs/vyapaar-exec"
+
+[workspace.dependencies]
+vyapaar-core = { path = "../vyapaar-core" }
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+tracing = "0.1"
+vyapaar-risk = { path = "../vyapaar-risk" }
+rust_decimal = "1"
