@@ -3,8 +3,18 @@ name = "vyapaar-exec-slicer"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "SEBI scrip-freeze-limit slicing and execution algorithms: freeze-limit catalog, iceberg legging (native + synthetic), and deterministic-zero-float TWAP schedules"
 
 [dependencies]
-vyapaar-core = { workspace = true }
-serde = { workspace = true }
-thiserror = { workspace = true }
+async-trait.workspace = true
+chrono.workspace = true
+rust_decimal.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+vyapaar-core.workspace = true
+vyapaar-exec-core.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
