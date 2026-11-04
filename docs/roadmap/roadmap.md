@@ -1,8 +1,8 @@
 # `vyapaar-exec` — TDD & Engineering Roadmap
 
 ## Milestone 1: Core Execution Traits, Rate Limiter & Auth (P0)
-- [ ] Port `vyapaar-exec-core` and `vyapaar-exec-auth`.
-- [ ] Verify token-bucket rate limiting and RFC 6238 TOTP test vectors.
+- [x] Port `vyapaar-exec-core` and `vyapaar-exec-auth`.
+- [x] Verify token-bucket rate limiting and RFC 6238 TOTP test vectors.
 
 ## Milestone 2: Freeze Slicer, Smart Order Router & Audit Journal (P0)
 - [ ] Port `vyapaar-exec-slicer`, `vyapaar-exec-router`, and `vyapaar-exec-audit`.
