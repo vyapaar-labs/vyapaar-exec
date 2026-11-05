@@ -157,6 +157,7 @@ pub fn fill_event(order_id: &str, quantity: u64) -> BrokerExecutionEvent {
         timestamp: Utc::now(),
         correlation_id: None,
         client_id: None,
+        account_id: None,
         fee: Money::zero_inr(),
         fee_breakdown: None,
         trace_context: None,

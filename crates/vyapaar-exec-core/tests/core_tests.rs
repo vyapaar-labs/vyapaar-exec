@@ -194,6 +194,7 @@ async fn channel_execution_stream_round_trip() {
         Quantity::from_u64(10),
         "algo-te-core-test",
         chrono::Utc::now(),
+        "default",
     );
     sink.try_send(BrokerExecutionEvent::Fill(fill.clone()))
         .unwrap();
