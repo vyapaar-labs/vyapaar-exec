@@ -1,6 +1,6 @@
 # 0001 — Crypto Execution Adapters & Broker Wire-Format Mapping Verification
 
-> **Status**: Partially implemented — Phase 1 (broker wire-mapping verification/refactor) done in `2675c07`; Phase 2 (crypto scope decision) still open; Phase 3 conditional on Phase 2.
+> **Status**: Implemented/completed — Phase 1 (broker wire-mapping verification/refactor) done in `2675c07`; Phase 2 (crypto scope decision) resolved **NO-GO**; Phase 3 skipped (conditional on Phase 2).
 > **Target Crates**: new `vyapaar-exec-{exchange}` crates (if pursued), existing `vyapaar-exec-angelone` / `vyapaar-exec-upstox` / `vyapaar-exec-zerodha` (verification only)
 > **Depends on reading**:
 > - /home/pmallapp/Devel/Finance/vyapaar-labs/vyapaar-market/docs/plans/0001-technicals-breadth-and-derivatives-pricing.md
@@ -49,6 +49,10 @@ Lookups are ASCII case-insensitive (brokers emit both `COMPLETE` and `complete`)
 
 State plainly: whether Vyapaar pursues crypto exchange execution at all is an open scope decision, not a committed direction. This document does not resolve it.
 
+#### RESOLVED: **NO-GO** (recorded this round)
+
+Vyapaar will **not** pursue crypto exchange execution for now. The go/no-go checkpoint (§Phase 2) is closed with a **no-go**: no `vyapaar-exec-{exchange}` crate, no crypto market-data adapter, no venue onboarding. The reasons: (a) the gap-closing plan this doc belongs to is India-equities/F&O focused, and crypto onboarding is a materially different venue/regulatory surface; (b) the broker wire-mapping refactor (Phase 1) was the prerequisite learning, and it is done; (c) nothing later in the bottoms-up build order depends on crypto, so the decision can be revisited without rework. Re-opening this decision requires a fresh scope review; this document stays as the decision record.
+
 ### 2.3 If pursued: first crypto exchange adapter shape (conditional on §2.2 being a "go")
 
 IF crypto execution is pursued, the shape would mirror the existing broker-adapter pattern already used in this repo:
@@ -67,6 +71,8 @@ Verify §2.1 against `vyapaar-exec-zerodha`/`-upstox`/`-angelone`. Do this first
 
 ### Phase 2: Crypto execution scope decision
 A go/no-go checkpoint on whether Vyapaar pursues crypto exchange execution at all — explicitly not an assumed yes.
+
+**DONE — NO-GO.** Recorded in §2.2. No crypto execution adapter will be built; Phase 3 is thereby skipped (its conditional never fires). Revisiting the decision later is a fresh scope review, not a resume point.
 
 ### Phase 3 (conditional on Phase 2 being a "go"): First crypto exchange adapter pilot
 Verify `vyapaar-exec-core`'s adapter trait, then implement a single `vyapaar-exec-{exchange}` crate for one well-documented venue as a pilot, following the pattern in §2.3.
