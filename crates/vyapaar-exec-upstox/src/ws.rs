@@ -18,9 +18,7 @@ use chrono::Utc;
 use serde_json::Value;
 use tokio::sync::mpsc;
 
-use vyapaar_core::{
-    FillReport, InstrumentId, Money, OrderAck, OrderSide, OrderStatus, Price, Quantity,
-};
+use vyapaar_core::{FillReport, InstrumentId, Money, OrderAck, OrderSide, Price, Quantity};
 use vyapaar_exec_core::wire;
 use vyapaar_exec_core::{BrokerError, BrokerExecutionEvent, ExecutionStream};
 
@@ -133,23 +131,18 @@ pub fn parse_portfolio_feed_frame(text: &str) -> Result<Vec<UpstoxFeedUpdate>, B
 }
 
 fn feed_instrument(update: &UpstoxFeedUpdate) -> InstrumentId {
-    let exchange = match update
-        .exchange
-        .as_deref()
-        .or_else(|| {
-            update
-                .instrument_token
-                .as_deref()
-                .and_then(|t| t.split('|').next())
-        })
-        .unwrap_or_default()
-        .to_uppercase()
-        .as_str()
-    {
-        "BSE" | "BSE_EQ" | "BSE_FO" => vyapaar_core::Exchange::Bse,
-        "MCX" | "MCX_EQ" | "MCX_FO" => vyapaar_core::Exchange::Mcx,
-        _ => vyapaar_core::Exchange::Nse,
-    };
+    let exchange = crate::mapping::exchange(
+        update
+            .exchange
+            .as_deref()
+            .or_else(|| {
+                update
+                    .instrument_token
+                    .as_deref()
+                    .and_then(|t| t.split('|').next())
+            })
+            .unwrap_or_default(),
+    );
     let raw = update
         .tradingsymbol
         .as_deref()
@@ -165,16 +158,7 @@ fn feed_instrument(update: &UpstoxFeedUpdate) -> InstrumentId {
 }
 
 fn feed_side(update: &UpstoxFeedUpdate) -> OrderSide {
-    match update
-        .transaction_type
-        .as_deref()
-        .unwrap_or_default()
-        .to_uppercase()
-        .as_str()
-    {
-        "SELL" => OrderSide::Sell,
-        _ => OrderSide::Buy,
-    }
+    crate::mapping::order_side(update.transaction_type.as_deref().unwrap_or_default())
 }
 
 fn feed_timestamp(update: &UpstoxFeedUpdate) -> chrono::DateTime<Utc> {
@@ -250,11 +234,7 @@ impl UpstoxOrderStream {
                     order_id,
                     client_order_id,
                     exchange_order_id: None,
-                    status: if status == "OPEN" || status == "NEW" {
-                        OrderStatus::New
-                    } else {
-                        OrderStatus::PendingNew
-                    },
+                    status: crate::mapping::order_status(&status),
                     timestamp: feed_timestamp(&update),
                     correlation_id: None,
                     client_id: None,

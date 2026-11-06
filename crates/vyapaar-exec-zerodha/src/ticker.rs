@@ -115,44 +115,30 @@ pub fn parse_order_update_frame(text: &str) -> Result<Vec<KiteTickerOrderUpdate>
 }
 
 fn ticker_status_event(status: &str) -> Option<OrderStatus> {
-    match status.to_uppercase().as_str() {
-        "OPEN" => Some(OrderStatus::New),
-        "OPEN PENDING"
-        | "PUT ORDER REQ RECEIVED"
-        | "VALIDATION PENDING"
-        | "AMO QUEUE PENDING"
-        | "TRIGGER PENDING"
-        | "AMO CANCEL PENDING" => Some(OrderStatus::PendingNew),
-        _ => None,
-    }
+    crate::mapping::ticker_status_event(status)
 }
 
 fn ticker_instrument(update: &KiteTickerOrderUpdate) -> InstrumentId {
-    let exchange = match update
-        .exchange
-        .as_deref()
-        .unwrap_or_default()
-        .to_uppercase()
-        .as_str()
-    {
-        "BSE" => vyapaar_core::Exchange::Bse,
-        "MCX" => vyapaar_core::Exchange::Mcx,
-        _ => vyapaar_core::Exchange::Nse,
-    };
+    let exchange = crate::mapping::exchange(
+        update
+            .exchange
+            .as_deref()
+            .unwrap_or_default()
+            .to_uppercase()
+            .as_str(),
+    );
     InstrumentId::new(exchange, update.tradingsymbol.clone().unwrap_or_default())
 }
 
 fn ticker_side(update: &KiteTickerOrderUpdate) -> OrderSide {
-    match update
-        .transaction_type
-        .as_deref()
-        .unwrap_or_default()
-        .to_uppercase()
-        .as_str()
-    {
-        "SELL" => OrderSide::Sell,
-        _ => OrderSide::Buy,
-    }
+    crate::mapping::order_side(
+        update
+            .transaction_type
+            .as_deref()
+            .unwrap_or_default()
+            .to_uppercase()
+            .as_str(),
+    )
 }
 
 fn ticker_timestamp(update: &KiteTickerOrderUpdate) -> chrono::DateTime<Utc> {

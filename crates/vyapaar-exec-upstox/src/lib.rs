@@ -11,6 +11,7 @@
 //! Order-channel rate limits are enforced by wrapping with
 //! [`vyapaar_exec_core::RateLimitedBroker`] via [`UpstoxExecutor::rate_limited`].
 
+pub mod mapping;
 mod ws;
 
 pub use ws::{
@@ -348,14 +349,37 @@ pub struct UpstoxOrderPayload {
     pub order_id: Option<String>,
 }
 
-fn upstox_status(status: &str) -> OrderStatus {
-    match status.to_uppercase().as_str() {
-        "COMPLETE" | "FILLED" => OrderStatus::Filled,
-        "REJECTED" => OrderStatus::Rejected,
-        "CANCELLED" => OrderStatus::Cancelled,
-        "OPEN" => OrderStatus::New,
-        _ => OrderStatus::PendingNew,
-    }
+fn status_of(order: &UpstoxOrderWire) -> OrderStatus {
+    mapping::order_status(&order.status)
+}
+
+fn side_of(order: &UpstoxOrderWire) -> OrderSide {
+    mapping::order_side(order.transaction_type.as_deref().unwrap_or_default())
+}
+
+fn order_type_of(order: &UpstoxOrderWire) -> OrderType {
+    mapping::order_type(
+        order.order_type.as_deref().unwrap_or_default(),
+        order.price.clone(),
+        order.trigger_price.clone(),
+    )
+}
+
+fn instrument_of(
+    exchange_text: Option<&str>,
+    token: Option<&str>,
+    tradingsymbol: Option<&str>,
+    isin: Option<&str>,
+) -> InstrumentId {
+    let exchange = mapping::exchange(
+        token
+            .unwrap_or_default()
+            .split('|')
+            .next()
+            .filter(|seg| !seg.is_empty())
+            .unwrap_or_else(|| exchange_text.unwrap_or_default()),
+    );
+    InstrumentId::new(exchange, canonical_symbol(tradingsymbol, isin))
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -429,67 +453,6 @@ struct UpstoxPositionWire {
     pnl: Option<Value>,
     #[serde(default)]
     last_price: Option<Value>,
-}
-
-fn status_of(order: &UpstoxOrderWire) -> OrderStatus {
-    upstox_status(&order.status)
-}
-
-fn side_of(order: &UpstoxOrderWire) -> OrderSide {
-    match order
-        .transaction_type
-        .as_deref()
-        .unwrap_or_default()
-        .to_uppercase()
-        .as_str()
-    {
-        "SELL" => OrderSide::Sell,
-        _ => OrderSide::Buy,
-    }
-}
-
-fn order_type_of(order: &UpstoxOrderWire) -> OrderType {
-    let price = order
-        .price
-        .as_ref()
-        .and_then(wire::price_from_json)
-        .unwrap_or(Price::ZERO);
-    let trigger = order
-        .trigger_price
-        .as_ref()
-        .and_then(wire::price_from_json)
-        .unwrap_or(Price::ZERO);
-    match order.order_type.as_deref().unwrap_or_default() {
-        "LIMIT" => OrderType::Limit(price),
-        "SL-M" => OrderType::StopLoss(trigger),
-        "SL" => OrderType::StopLimit {
-            trigger,
-            limit: price,
-        },
-        _ => OrderType::Market,
-    }
-}
-
-fn instrument_of(
-    exchange_text: Option<&str>,
-    token: Option<&str>,
-    tradingsymbol: Option<&str>,
-    isin: Option<&str>,
-) -> InstrumentId {
-    let exchange = match token
-        .unwrap_or_default()
-        .split('|')
-        .next()
-        .filter(|seg| !seg.is_empty())
-        .unwrap_or_else(|| exchange_text.unwrap_or_default())
-        .to_uppercase()
-        .as_str()
-    {
-        "BSE" | "BSE_EQ" | "BSE_FO" => vyapaar_core::Exchange::Bse,
-        "MCX" | "MCX_EQ" | "MCX_FO" => vyapaar_core::Exchange::Mcx,
-        _ => vyapaar_core::Exchange::Nse,
-    };
-    InstrumentId::new(exchange, canonical_symbol(tradingsymbol, isin))
 }
 
 fn quantity_field(value: &Option<Value>) -> Quantity {
@@ -770,7 +733,7 @@ impl BrokerExecutor for UpstoxExecutor {
             .await?;
         let history: Vec<OrderHistoryEntry> = Self::upstox_data(value)?;
         if let Some(last) = history.last() {
-            return Ok(upstox_status(&last.status));
+            return Ok(mapping::order_status(&last.status));
         }
         Err(BrokerError::OrderNotFound(order_id.to_string()))
     }

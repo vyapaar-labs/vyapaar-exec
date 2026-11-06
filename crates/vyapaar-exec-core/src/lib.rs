@@ -11,6 +11,7 @@
 //! - [`executor`] — [`BrokerExecutor`] trait v2, [`RiskGatedExecutor`], mock adapter
 //! - [`stream`] — [`ExecutionStream`] push trait + channel transport
 //! - [`ratelimit`] — prioritized token bucket + [`RateLimitedBroker`] wrapper
+//! - [`wiring`] — table-driven broker wire-token → canonical-enum mapping
 //! - [`decimal`] — exact decimal wire formatting (no floats, ever)
 //! - [`error`] — [`BrokerError`] taxonomy
 
@@ -22,6 +23,7 @@ pub mod stream;
 pub mod telemetry;
 pub mod types;
 pub mod wire;
+pub mod wiring;
 
 pub use decimal::{format_fixed_exact, quantity_to_u32_exact};
 pub use error::BrokerError;
@@ -39,6 +41,7 @@ pub use stream::{
 pub use types::{
     BrokerHealth, BrokerMargins, BrokerPosition, OrderSnapshot, PositionSide, ProductType,
 };
+pub use wiring::{BrokerEnumMap, OrderTypeKind};
 
 // Canonical domain re-exports (unified strictly on vyapaar-core).
 pub use vyapaar_core::{

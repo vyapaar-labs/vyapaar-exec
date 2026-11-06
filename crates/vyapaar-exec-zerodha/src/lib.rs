@@ -12,6 +12,7 @@
 //! enforced by wrapping with [`vyapaar_exec_core::RateLimitedBroker`] via
 //! [`ZerodhaExecutor::rate_limited`].
 
+pub mod mapping;
 mod postback;
 mod ticker;
 
@@ -285,43 +286,6 @@ struct UserProfile {
     user_id: String,
 }
 
-fn kite_status(status: &str) -> OrderStatus {
-    match status.to_uppercase().as_str() {
-        "COMPLETE" => OrderStatus::Filled,
-        "REJECTED" => OrderStatus::Rejected,
-        "CANCELLED" => OrderStatus::Cancelled,
-        "OPEN" => OrderStatus::New,
-        _ => OrderStatus::PendingNew,
-    }
-}
-
-/// Map the Kite `order_type`+price/trigger trio into the canonical type.
-fn kite_order_type(order_type: &str, price: Option<Value>, trigger: Option<Value>) -> OrderType {
-    let price = price
-        .and_then(|v| wire::price_from_json(&v))
-        .unwrap_or(Price::ZERO);
-    let trigger = trigger
-        .and_then(|v| wire::price_from_json(&v))
-        .unwrap_or(Price::ZERO);
-    match order_type {
-        "LIMIT" => OrderType::Limit(price),
-        "SL-M" => OrderType::StopLoss(trigger),
-        "SL" => OrderType::StopLimit {
-            trigger,
-            limit: price,
-        },
-        _ => OrderType::Market,
-    }
-}
-
-fn kite_exchange(exchange: &str) -> vyapaar_core::Exchange {
-    match exchange.to_uppercase().as_str() {
-        "BSE" => vyapaar_core::Exchange::Bse,
-        "MCX" => vyapaar_core::Exchange::Mcx,
-        _ => vyapaar_core::Exchange::Nse,
-    }
-}
-
 /// Map the Kite margin product token to the canonical taxonomy, defaulting
 /// unmapped tokens (`BO` verkettet specials, carry products) to CNC delivery.
 fn kite_product_or_default(token: &str) -> ProductType {
@@ -435,14 +399,11 @@ impl BrokerExecutor for ZerodhaExecutor {
                     client_order_id: None,
                     exchange_order_id: o.exchange_order_id,
                     instrument: InstrumentId::new(
-                        kite_exchange(&o.exchange),
+                        mapping::exchange(&o.exchange),
                         o.tradingsymbol.clone(),
                     ),
-                    side: match o.transaction_type.as_str() {
-                        "SELL" => OrderSide::Sell,
-                        _ => OrderSide::Buy,
-                    },
-                    order_type: kite_order_type(
+                    side: mapping::order_side(&o.transaction_type),
+                    order_type: mapping::order_type(
                         &o.order_type,
                         o.price.clone(),
                         o.trigger_price.clone(),
@@ -451,7 +412,7 @@ impl BrokerExecutor for ZerodhaExecutor {
                     filled_quantity: filled,
                     price: o.price.and_then(|v| wire::price_from_json(&v)),
                     trigger_price: o.trigger_price.and_then(|v| wire::price_from_json(&v)),
-                    status: kite_status(&o.status),
+                    status: mapping::order_status(&o.status),
                     product: ProductType::from_zerodha(&o.product),
                     timestamp: o
                         .order_timestamp
@@ -483,7 +444,7 @@ impl BrokerExecutor for ZerodhaExecutor {
                 };
                 BrokerPosition {
                     instrument: InstrumentId::new(
-                        kite_exchange(&p.exchange),
+                        mapping::exchange(&p.exchange),
                         p.tradingsymbol.clone(),
                     ),
                     product: kite_product_or_default(&p.product),
@@ -541,7 +502,7 @@ impl BrokerExecutor for ZerodhaExecutor {
         let value = self.get_kite(&format!("/orders/{order_id}")).await?;
         let orders: Vec<KiteOrderData> = Self::kite_data(value)?;
         if let Some(last) = orders.last() {
-            return Ok(kite_status(&last.status));
+            return Ok(mapping::order_status(&last.status));
         }
         Err(BrokerError::OrderNotFound(order_id.to_string()))
     }

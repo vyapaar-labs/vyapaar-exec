@@ -349,18 +349,11 @@ fn postback_to_event(
 }
 
 fn exchange_of(exchange: Option<&str>) -> vyapaar_core::Exchange {
-    match exchange.unwrap_or_default().to_uppercase().as_str() {
-        "BSE" => vyapaar_core::Exchange::Bse,
-        "MCX" => vyapaar_core::Exchange::Mcx,
-        _ => vyapaar_core::Exchange::Nse,
-    }
+    crate::mapping::exchange(exchange.unwrap_or_default())
 }
 
 fn side_of(transaction_type: Option<&str>) -> OrderSide {
-    match transaction_type.unwrap_or_default().to_uppercase().as_str() {
-        "SELL" => OrderSide::Sell,
-        _ => OrderSide::Buy,
-    }
+    crate::mapping::order_side(transaction_type.unwrap_or_default())
 }
 
 /// Fill price: average execution price when filled, else limit price when
