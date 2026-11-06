@@ -23,8 +23,8 @@
 * **Interface-First**: Broker gateways implement `BrokerExecutor` trait; slicers implement `OrderSlicer` trait.
 * **Zero Floats Policy**: Strict decimal arithmetic via `rust_decimal::Decimal`.
 * **TDD & Parallel Test Directory Rule (MANDATORY)**:
-  - All tests must live in `tests/` parallel to `src/`.
-  - **STRICTLY FORBIDDEN**: In-file `#[test]` inside `src/`.
+  - All tests must live in `tests/` parallel to `src/`, or in a `src/tests/` module directory.
+  - **STRICTLY FORBIDDEN**: In-file `#[test]` inside production `src/` files.
 
 ---
 
