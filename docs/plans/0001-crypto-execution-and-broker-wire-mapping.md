@@ -1,6 +1,6 @@
 # 0001 — Crypto Execution Adapters & Broker Wire-Format Mapping Verification
 
-> **Status**: Proposed — not yet implemented.
+> **Status**: Partially implemented — Phase 1 (broker wire-mapping verification/refactor) done in `2675c07`; Phase 2 (crypto scope decision) still open; Phase 3 conditional on Phase 2.
 > **Target Crates**: new `vyapaar-exec-{exchange}` crates (if pursued), existing `vyapaar-exec-angelone` / `vyapaar-exec-upstox` / `vyapaar-exec-zerodha` (verification only)
 > **Depends on reading**:
 > - /home/pmallapp/Devel/Finance/vyapaar-labs/vyapaar-market/docs/plans/0001-technicals-breadth-and-derivatives-pricing.md
@@ -30,6 +30,21 @@ Check `vyapaar-exec-zerodha`, `vyapaar-exec-upstox`, and `vyapaar-exec-angelone`
 - If a table-driven approach is already in use, document it as confirmed and move on.
 - If ad-hoc if-chains are found, this is a shared refactor opportunity spanning both this repo and `vyapaar-market`'s broker crates — same underlying pattern (wire-enum-to-canonical-enum translation), two different bounded contexts (execution vs. data). Coordinate the refactor scope with `vyapaar-market/docs/plans/0001-technicals-breadth-and-derivatives-pricing.md` §2.4/Phase 3 rather than duplicating the investigation.
 
+#### Verified (Phase 1 complete, exec side)
+
+**Finding: ad-hoc match chains confirmed.** `vyapaar-exec-zerodha` (`lib.rs`, `ticker.rs`, `postback.rs`) and `vyapaar-exec-upstox` (`lib.rs`, `ws.rs`) both translated broker wire tokens with hand-rolled `match` expressions and silent per-call-site fallbacks (`_ => PendingNew`, `_ => Buy`, `_ => Nse`, `_ => Market`), each path re-deriving the same vocabulary. `vyapaar-exec-angelone` is still a placeholder with no wire translation code.
+
+**Refactor applied** (`2675c07`): the shared `BrokerEnumMap<T>` table-driven lookup now lives in `vyapaar-exec-core` (`wiring` module, re-exported at the crate root), with per-broker data tables in `vyapaar-exec-zerodha::mapping` and `vyapaar-exec-upstox::mapping`:
+- order status (`KITE_ORDER_STATUS`, `UPSTOX_ORDER_STATUS` — the Upstox table merges the REST and portfolio-feed vocabularies, so the WS ack status is table-driven too)
+- order side (`KITE_ORDER_SIDE`, `UPSTOX_ORDER_SIDE`)
+- exchange segment (`KITE_EXCHANGE`, `UPSTOX_EXCHANGE`)
+- order type (`KITE_ORDER_TYPE`, `UPSTOX_ORDER_TYPE`) mapped to an `OrderTypeKind` discriminant whose price/trigger payloads are applied at the call site, since they ride on the wire record, not the token
+- Ticker/postback ack statuses (`KITE_TICKER_STATUS`)
+
+Lookups are ASCII case-insensitive (brokers emit both `COMPLETE` and `complete`) and zero-allocation. Existing conformance/rest/ticker/postback tests were unchanged and stayed green; new `tests/wire_mapping_tests.rs` in each broker crate pin the tables. The canonical→wire direction (`build_order_payload` etc.) was left as exhaustive matches — those have no unmapped-token fallback and are not the pattern the doc's question targets.
+
+**Market-side coordination**: the equivalent question for `vyapaar-market` was checked jointly (this doc cross-references it). `vyapaar-market`'s five broker crates have no wire translation code yet — four are single-line placeholders and `vyapaar-market-dhan` is a stub feed — so there was nothing to refactor there. When real market-data wire translation lands, the same `BrokerEnumMap<T>` pattern should be adopted (mirrored into `vyapaar-market-core`). See `vyapaar-market/docs/plans/0001-technicals-breadth-and-derivatives-pricing.md` §2.4/Phase 3.
+
 ### 2.2 Crypto execution scope decision (conditional, no code committed)
 
 State plainly: whether Vyapaar pursues crypto exchange execution at all is an open scope decision, not a committed direction. This document does not resolve it.
@@ -47,6 +62,8 @@ IF crypto execution is pursued, the shape would mirror the existing broker-adapt
 
 ### Phase 1: Broker wire-mapping verification (shared with `vyapaar-market`)
 Verify §2.1 against `vyapaar-exec-zerodha`/`-upstox`/`-angelone`. Do this first — it is cheap, and its outcome (table-driven vs. ad-hoc) informs whether the same pattern should be used for any new crypto adapter designed in Phase 3.
+
+**DONE** — ad-hoc match chains confirmed and refactored to `BrokerEnumMap<T>` tables; see the verified result in §2.1. `vyapaar-exec-angelone` had nothing to refactor (placeholder).
 
 ### Phase 2: Crypto execution scope decision
 A go/no-go checkpoint on whether Vyapaar pursues crypto exchange execution at all — explicitly not an assumed yes.
