@@ -213,6 +213,108 @@ impl<E: BrokerExecutor> RiskGatedExecutor<E> {
     }
 }
 
+/// [`BrokerExecutor`] for `Arc<T>`: trait-object brokers (`Arc<dyn BrokerExecutor>`)
+/// remain composable under [`RateLimitedBroker`] and [`RiskGatedExecutor`].
+#[async_trait]
+impl<T: BrokerExecutor + ?Sized> BrokerExecutor for Arc<T> {
+    fn name(&self) -> &str {
+        (**self).name()
+    }
+
+    async fn health_check(&self) -> Result<BrokerHealth, BrokerError> {
+        (**self).health_check().await
+    }
+
+    async fn place_order(&self, req: OrderRequest) -> Result<OrderAck, BrokerError> {
+        (**self).place_order(req).await
+    }
+
+    async fn cancel_order(&self, order_id: &str) -> Result<(), BrokerError> {
+        (**self).cancel_order(order_id).await
+    }
+
+    async fn modify_order(
+        &self,
+        order_id: &str,
+        new_price: Option<Price>,
+        new_quantity: Option<Quantity>,
+    ) -> Result<OrderAck, BrokerError> {
+        (**self)
+            .modify_order(order_id, new_price, new_quantity)
+            .await
+    }
+
+    async fn fetch_order_book(&self) -> Result<Vec<OrderSnapshot>, BrokerError> {
+        (**self).fetch_order_book().await
+    }
+
+    async fn fetch_positions(&self) -> Result<Vec<BrokerPosition>, BrokerError> {
+        (**self).fetch_positions().await
+    }
+
+    async fn fetch_margins(&self) -> Result<BrokerMargins, BrokerError> {
+        (**self).fetch_margins().await
+    }
+
+    async fn get_order_status(&self, order_id: &str) -> Result<OrderStatus, BrokerError> {
+        (**self).get_order_status(order_id).await
+    }
+}
+
+/// The risk-gated wrapper is itself a [`BrokerExecutor`], so it can be stored as
+/// `Arc<dyn BrokerExecutor>` and composed under any further wrapper.
+///
+/// Only the *placement* path is gated (mandatory pre-trade risk check via
+/// [`RiskGatedExecutor::place_order`]); passive reads and the trait-level
+/// `cancel_order` (which carries no `algo_id`) delegate to the inner broker.
+/// Use the inherent [`RiskGatedExecutor::cancel_order`] when OTR recording is
+/// required.
+#[async_trait]
+impl<E: BrokerExecutor> BrokerExecutor for RiskGatedExecutor<E> {
+    fn name(&self) -> &str {
+        self.inner.name()
+    }
+
+    async fn health_check(&self) -> Result<BrokerHealth, BrokerError> {
+        self.inner.health_check().await
+    }
+
+    async fn place_order(&self, req: OrderRequest) -> Result<OrderAck, BrokerError> {
+        self.place_order(req).await
+    }
+
+    async fn cancel_order(&self, order_id: &str) -> Result<(), BrokerError> {
+        self.inner.cancel_order(order_id).await
+    }
+
+    async fn modify_order(
+        &self,
+        order_id: &str,
+        new_price: Option<Price>,
+        new_quantity: Option<Quantity>,
+    ) -> Result<OrderAck, BrokerError> {
+        self.inner
+            .modify_order(order_id, new_price, new_quantity)
+            .await
+    }
+
+    async fn fetch_order_book(&self) -> Result<Vec<OrderSnapshot>, BrokerError> {
+        self.inner.fetch_order_book().await
+    }
+
+    async fn fetch_positions(&self) -> Result<Vec<BrokerPosition>, BrokerError> {
+        self.inner.fetch_positions().await
+    }
+
+    async fn fetch_margins(&self) -> Result<BrokerMargins, BrokerError> {
+        self.inner.fetch_margins().await
+    }
+
+    async fn get_order_status(&self, order_id: &str) -> Result<OrderStatus, BrokerError> {
+        self.inner.get_order_status(order_id).await
+    }
+}
+
 #[derive(Debug, Clone)]
 struct MockOrderState {
     request: OrderRequest,
@@ -231,9 +333,13 @@ fn simulated_cash() -> Money {
 pub struct MockBrokerExecutor {
     orders: Arc<Mutex<HashMap<String, MockOrderState>>>,
     auto_fill: bool,
+    /// Reject every order/cancel attempt (simulated broker outage / refusal).
+    reject: bool,
     positions: Arc<Mutex<Vec<BrokerPosition>>>,
     margins: Arc<Mutex<BrokerMargins>>,
     health_ok: bool,
+    /// Every order submitted through this mock, in submission order.
+    placed: Arc<Mutex<Vec<OrderRequest>>>,
 }
 
 impl MockBrokerExecutor {
@@ -242,6 +348,7 @@ impl MockBrokerExecutor {
         Self {
             orders: Arc::new(Mutex::new(HashMap::new())),
             auto_fill,
+            reject: false,
             positions: Arc::new(Mutex::new(Vec::new())),
             margins: Arc::new(Mutex::new(BrokerMargins {
                 available_cash: simulated_cash(),
@@ -249,7 +356,30 @@ impl MockBrokerExecutor {
                 collateral: Money::inr(Decimal::ZERO),
             })),
             health_ok: true,
+            placed: Arc::new(Mutex::new(Vec::new())),
         }
+    }
+
+    /// A mock that accepts every order and leaves it resting as `New`
+    /// (auto-fill disabled) — the canonical deterministic test broker.
+    pub fn accept_all() -> Self {
+        Self::new(false)
+    }
+
+    /// A mock that rejects every order and cancellation (broker refusal mode).
+    pub fn reject_all() -> Self {
+        Self::new(false).with_reject_all()
+    }
+
+    /// Simulate a broker that refuses every order and cancellation.
+    pub fn with_reject_all(mut self) -> Self {
+        self.reject = true;
+        self
+    }
+
+    /// Every order request submitted through this mock, in submission order.
+    pub async fn placed_orders(&self) -> Vec<OrderRequest> {
+        self.placed.lock().await.clone()
     }
 
     /// Configure the simulated cash/margin balances returned by `fetch_margins`.
@@ -296,6 +426,15 @@ impl BrokerExecutor for MockBrokerExecutor {
     }
 
     async fn place_order(&self, req: OrderRequest) -> Result<OrderAck, BrokerError> {
+        // Record every submission (rejection or not) for test assertions.
+        self.placed.lock().await.push(req.clone());
+
+        if self.reject {
+            return Err(BrokerError::Rejected(
+                "mock broker configured to reject orders".into(),
+            ));
+        }
+
         let order_id = format!("MOCK-{}", Uuid::new_v4().simple());
         let initial_status = if self.auto_fill {
             OrderStatus::Filled
@@ -334,6 +473,11 @@ impl BrokerExecutor for MockBrokerExecutor {
     }
 
     async fn cancel_order(&self, order_id: &str) -> Result<(), BrokerError> {
+        if self.reject {
+            return Err(BrokerError::Rejected(
+                "mock broker configured to reject cancellations".into(),
+            ));
+        }
         let mut lock = self.orders.lock().await;
         if let Some(state) = lock.get_mut(order_id) {
             if state.status.is_terminal() {

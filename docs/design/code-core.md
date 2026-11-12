@@ -61,17 +61,30 @@ pub struct RiskGatedExecutor<E: BrokerExecutor> {
 }
 ```
 
+`RiskGatedExecutor` implements the `BrokerExecutor` trait itself, so it can be
+stored as `Arc<dyn BrokerExecutor>` and composed under further wrappers
+(`RateLimitedBroker`, etc.). A blanket `impl BrokerExecutor for Arc<T>` forwards
+trait-object brokers through the same stack.
+
 | Method | Behavior |
 |--------|----------|
 | `place_order(req)` | `risk_engine.check_order(&req, now)` → refused orders rejected synchronously, never dispatched |
-| `cancel_order(order_id, algo_id)` | Cancels at the broker, then `record_cancellation(algo_id)` for OTR tracking |
+| `cancel_order(order_id, algo_id)` (inherent) | Cancels at the broker, then `record_cancellation(algo_id)` for OTR tracking |
 | `on_fill(fill)` | `risk_engine.record_fill(fill)` to update OTR/positions |
+| trait `cancel_order(order_id)` | Delegates to the inner broker (trait surface carries no `algo_id`) |
 
 ## `MockBrokerExecutor`
 
 Thread-safe deterministic mock: `new(auto_fill)` (auto-fill or leave `New`),
 `with_margins`, `with_positions`, `with_session_down`. Simulated default cash
-INR 1,000,000.00. Name `"mock"`.
+INR 1,000,000.00. Name `"mock"`. Convenience modes:
+
+| Constructor / builder | Behavior |
+|-----------------------|----------|
+| `accept_all()` | Accepts every order, leaves it `New` (canonical test broker) |
+| `reject_all()` | Refuses every order/cancel with `BrokerError::Rejected` |
+| `with_reject_all()` | Toggles rejection on any instance |
+| `placed_orders()` | Every submitted `OrderRequest`, in submission order |
 
 ## `ExecutionStream` & Events
 

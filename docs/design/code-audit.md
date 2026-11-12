@@ -20,8 +20,14 @@ journal and SEBI Annexure exporter, plus the `vyapaar-audit-export` CLI.
 > SQLx SQLite WAL storage. sqlx/sqlite is unavailable in this build
 > environment's dependency cache and would couple the audit path to an external
 > C library; the fsynced JSONL segment WAL delivers the same append-only,
-> fsync-per-entry durability with a human-inspectable replay format. This is
-> tracked as `docs/gaps/0002-audit-journal-storage.md`.
+> fsync-per-entry durability with a human-inspectable replay format.
+>
+> **Resolution (gap `0002` closed)**: the JSONL segment WAL is canonical in
+> `vyapaar-exec` (tamper-evident file journal + SEBI Annexure export). The
+> runtime's `SqliteAuditLedger` (`vyapaar-runtime-persistence`) remains the
+> complementary **operational** SQLite store written by the live
+> `ExecutionActor` for day-to-day queries. No published reference now claims
+> `vyapaar-exec` uses a SQLite WAL journal.
 
 Each journal is a directory of append-only JSONL segments named
 `wal-{first_seq:010}.jsonl`, rotated every `SEGMENT_ROTATION` (10,000) entries.
@@ -97,4 +103,5 @@ JSONL replay.
 
 * `code-router.md` — routed orders/fills feed the audit journal.
 * `code-core.md` — `BrokerExecutor` adapters produce the audited events.
-* `docs/gaps/0002-audit-journal-storage.md` — SQLite WAL reconciliation gap.
+* The runtime's `SqliteAuditLedger` is the complementary operational SQLite
+  audit store (gap `0002` closed).

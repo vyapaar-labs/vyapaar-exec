@@ -80,7 +80,7 @@ never status polling alone.
 
 | Decision | Where | Note |
 | :--- | :--- | :--- |
-| Audit journal is fsynced JSONL segment WAL, **not** SQLite WAL | `vyapaar-exec-audit/src/journal.rs` | Documented plan deviation (sqlx/sqlite unavailable in the build environment); reconcile naming in `docs/gaps/0002-audit-journal-storage.md` |
+| Audit journal is fsynced JSONL segment WAL, **not** SQLite WAL | `vyapaar-exec-audit/src/journal.rs` | Deliberate deviation (sqlx/sqlite unavailable in the exec build); the runtime's `SqliteAuditLedger` is the complementary operational SQLite store. See `docs/gaps/README.md` (gap 0002 closed) |
 | Angel One adapter is a stub | `crates/vyapaar-exec-angelone/` | `docs/gaps/0001-angelone-adapter.md` |
 | Risk gating lives in `vyapaar-exec-core::RiskGatedExecutor` and legacy `SmartOrderRouter`; the v2 `ResilientRouter` keeps risk upstream | `executor.rs`, `router` | Wrapping layers stay composable |
 | Table-driven wire-token mapping (`BrokerEnumMap`) | `vyapaar-exec-core/src/wiring.rs` | Adding a broker or token means editing a table, not match arms |

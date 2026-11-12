@@ -13,10 +13,10 @@ use vyapaar_core::uuid::Uuid;
 use vyapaar_core::{Exchange, InstrumentId, OrderSide, OrderType, Price, Quantity};
 use vyapaar_exec_core::decimal::{format_fixed_exact, quantity_to_u32_exact};
 use vyapaar_exec_core::{
-    BrokerExecutionEvent, BrokerExecutor, BrokerRateCatalog, BrokerRateCatalog as Catalog,
-    ChannelExecutionStream, ExecutionStream, MockBrokerExecutor, OrderAck, OrderRequest,
-    OrderStatus, RateLimitedBroker, RateLimiterConfig, RequestPriority, RiskGatedExecutor,
-    RiskRefusal, TokenBucketRateLimiter,
+    BrokerError, BrokerExecutionEvent, BrokerExecutor, BrokerRateCatalog,
+    BrokerRateCatalog as Catalog, ChannelExecutionStream, ExecutionStream, MockBrokerExecutor,
+    OrderAck, OrderRequest, OrderStatus, RateLimitedBroker, RateLimiterConfig, RequestPriority,
+    RiskGatedExecutor, RiskRefusal, TokenBucketRateLimiter,
 };
 use vyapaar_risk::RiskEngine;
 
@@ -74,6 +74,72 @@ async fn risk_gated_executor_blocks_rejected_orders() {
         }
         other => panic!("expected risk refusal, got {other:?}"),
     }
+}
+
+// ---------------------------------------------------------------------------
+// Risk-gated executor as a composable `Arc<dyn BrokerExecutor>`
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn risk_gated_executor_composes_as_dyn_broker() {
+    let mock = MockBrokerExecutor::accept_all();
+    let risk_engine = Arc::new(Mutex::new(RiskEngine::default()));
+    {
+        let mut engine = risk_engine.lock().await;
+        engine.register_algo("algo-te-core-test");
+    }
+    let gated = RiskGatedExecutor::new(mock, risk_engine.clone());
+
+    // Coerce the gated wrapper into a trait object and wrap it again in Arc:
+    // `RiskGatedExecutor` implements `BrokerExecutor` and `Arc<T>` forwards it.
+    let broker: Arc<dyn BrokerExecutor> = Arc::new(gated);
+
+    let req = limit_req("TCS", 10, "3000.00");
+    assert_eq!(broker.name(), "mock");
+
+    // 1. Order passes the gate through dyn dispatch and stays New (accept_all).
+    let ack = broker.place_order(req.clone()).await.unwrap();
+    assert_eq!(ack.status, OrderStatus::New);
+
+    // 2. Global halt -> order refused synchronously without reaching the broker.
+    {
+        let mut engine = risk_engine.lock().await;
+        engine.halt_global("Manual kill-switch", chrono::Utc::now());
+    }
+    let err = broker.place_order(req).await.unwrap_err();
+    match err {
+        BrokerError::RiskRefusal(inner) => {
+            assert!(
+                matches!(&*inner, RiskRefusal::GlobalHalted { .. }),
+                "got {inner:?}"
+            );
+        }
+        other => panic!("expected risk refusal, got {other:?}"),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Mock broker rejection mode + submission recording
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn mock_broker_reject_mode_and_placed_recording() {
+    let accepting = MockBrokerExecutor::accept_all();
+    assert_eq!(accepting.name(), "mock");
+
+    let req = limit_req("TCS", 10, "3000.00");
+    let ack = accepting.place_order(req.clone()).await.unwrap();
+    assert_eq!(ack.status, OrderStatus::New);
+    assert_eq!(accepting.placed_orders().await.len(), 1);
+    assert_eq!(accepting.placed_orders().await[0], req);
+
+    // Rejecting mock refuses without recording an ack (still records the
+    // submission so tests can assert the wire was attempted).
+    let rejecting = MockBrokerExecutor::reject_all();
+    let err = rejecting.place_order(req).await.unwrap_err();
+    assert!(matches!(err, BrokerError::Rejected(_)));
+    assert_eq!(rejecting.placed_orders().await.len(), 1);
+    assert!(rejecting.cancel_order("MOCK-1").await.is_err());
 }
 
 // ---------------------------------------------------------------------------

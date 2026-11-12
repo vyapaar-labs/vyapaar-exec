@@ -1,40 +1,43 @@
 # HANDOFF — vyapaar-exec
 
 **Status**: Migration complete for 7/8 crates; `vyapaar-exec-angelone` is a
-scaffold stub (gap 0001). Roadmap dismantled into `docs/{design,gaps,plans}`;
-docs rewritten to reflect source. Plan 0002 active (Milestone 3 completion).
+scaffold stub (gap 0001, plan 0002 Phase 1). Audit storage gap 0002 **closed**
+(JSONL journal canonical; runtime's `SqliteAuditLedger` complementary).
+Execution-composition seam hardened for the runtime consumer.
 **Date**: 2026-11-12 · Repo: `vyapaar-exec` · Branch: `main`
 
-## Phase / Slice Status (current batch — docs rewrite)
+## Phase / Slice Status (current batch — exec/runtime seam + gap 0002)
 
-- Deleted `docs/roadmap/` (roadmap.md + migration-verification.md).
-- Rewrote `docs/design/`: `architecture.md`, `code-core.md` (replaces
-  `code-executor.md`), `code-ratelimit.md`, `code-auth.md`, `code-slicer.md`,
-  `code-router.md`, `code-audit.md`, `code-adapters.md` (new), and
-  `code-migration-map.md` — all verified against source.
-- Added `docs/gaps/README.md` + `0001-angelone-adapter.md` +
-  `0002-audit-journal-storage.md`.
-- Added `docs/plans/0002-milestone3-adapter-completion.md`; plans index keeps
-  0001 (implemented).
-- README fixed (no facade crate; audit journal is JSONL segment WAL; angelone
-  marked stub). Source comments cite gaps at stub/deviant sites.
+- `MockBrokerExecutor` extended: `accept_all()`, `reject_all()`,
+  `with_reject_all()`, `placed_orders()`; runtime duplicates deleted in favor
+  of re-exporting exec's mock.
+- `RiskGatedExecutor` now implements the `BrokerExecutor` trait (composable as
+  `Arc<dyn BrokerExecutor>`); blanket `impl BrokerExecutor for Arc<T>` added —
+  the runtime `ExecutionActor` composes `RiskGatedExecutor<RateLimitedBroker<_>>`.
+- Gap 0002 closed: JSONL segment WAL canonical for exec; runtime
+  `SqliteAuditLedger` = operational SQLite store. Repo + workspace AGENTS/README
+  wording aligned. Gap doc removed (Closed table updated).
+- Design docs updated (`code-core.md`, `code-audit.md`, `architecture.md`,
+  `code-migration-map.md`, plan 0002 Phase 2 marked DONE).
 
 ## Decisions & Discoveries
 
 - `vyapaar-exec-angelone/src/lib.rs` is a **placeholder only** — Milestone 3 is
   partial (zerodha + upstox ported; angelone stub) → gap 0001.
-- Audit journal is a **fsynced JSONL segment WAL**, not SQLite WAL (documented
-  plan deviation in `journal.rs`; sqlx/sqlite unavailable) → gap 0002.
-- `vyapaar-exec-core` modules beyond the old docs: `wire`, `wiring`
-  (`BrokerEnumMap`), `decimal`, `telemetry`.
-- Router: v2 `ResilientRouter` (sor/cost/health/otr) is primary; legacy
-  `SmartOrderRouter` + `ExecRouter` remain for the integrated risk flow.
+- Audit journal is a **fsynced JSONL segment WAL**; the runtime owns the
+  operational SQLite audit store (`SqliteAuditLedger`) — complementary roles,
+  not a conflict.
+- `RiskGatedExecutor` trait `cancel_order` delegates without OTR recording
+  (trait surface carries no `algo_id`); use the inherent
+  `cancel_order(order_id, algo_id)` when OTR recording is required.
 
 ## Immediate Next Step
 
 - Plan 0002 Phase 1: implement the Angel One adapter surface (gap 0001) with
-  parallel `tests/`; then Phase 2 audit storage reconciliation (gap 0002).
-- Re-run the verification suite (`code-migration-map.md`) on close-out.
+  parallel `tests/`; re-run the verification suite (`code-migration-map.md`)
+  on close-out.
+- Cross-repo doc cleanup: `vyapaar-docs` still describes exec's journal as
+  "SQLite WAL" (architecture/adapter_interface/overview/event_loop/tradebook).
 
 ## Operating Invariants
 

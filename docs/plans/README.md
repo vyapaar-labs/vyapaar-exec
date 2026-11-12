@@ -11,7 +11,7 @@ Per workspace rule `.agents/rules/gap-tracking.md`:
 
 | # | Title | Target Scope | Status |
 |---|-------|--------------|--------|
-| 0002 | Milestone 3 Adapter Completion (Angel One adapter, audit storage reconciliation) | `vyapaar-exec-angelone`, `vyapaar-exec-audit` | In progress — Phase 1 (gap 0001) open, Phase 2 (gap 0002) open |
+| 0002 | Milestone 3 Adapter Completion (Angel One adapter, audit storage reconciliation) | `vyapaar-exec-angelone`, `vyapaar-exec-audit` | In progress — Phase 1 (gap 0001) open, Phase 2 (gap 0002) closed |
 
 ## Implemented Plans
 

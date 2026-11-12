@@ -14,7 +14,7 @@
 | `honba-te-auth` | `vyapaar-exec-auth` | Port TOTP, session manager, eDIS, and tests. | Complete |
 | `honba-te-slicer` | `vyapaar-exec-slicer` | Port freeze quantity slicer, Iceberg/TWAP/VWAP slicers, and tests. | Complete |
 | `honba-te-router` | `vyapaar-exec-router` | Port `SmartOrderRouter` wired to `vyapaar_risk::RiskEngine`. | Complete |
-| `honba-te-audit` | `vyapaar-exec-audit` | Port the SHA-256 hash-chained audit journal and tests (JSONL segment WAL — see `docs/gaps/0002-audit-journal-storage.md`). | Complete |
+| `honba-te-audit` | `vyapaar-exec-audit` | Port the SHA-256 hash-chained audit journal and tests (JSONL segment WAL — gap `0002` closed; the runtime's `SqliteAuditLedger` is the complementary operational store). | Complete |
 | `honba-te-zerodha` | `vyapaar-exec-zerodha` | Port Zerodha Kite v3 executor and webhook postback handler. | Complete |
 | `honba-te-upstox` | `vyapaar-exec-upstox` | Port Upstox v2 executor. | Complete |
 | `honba-te-angelone` | `vyapaar-exec-angelone` | Port Angel One SmartAPI 2.0 executor. | **Stub** — placeholder only (`docs/gaps/0001-angelone-adapter.md`) |
