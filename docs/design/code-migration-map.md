@@ -1,8 +1,8 @@
 # `vyapaar-exec` — Historical Migration Map (honba-te → vyapaar-exec)
 
 > **Tier**: Tier 2B (Depends on `vyapaar-core` and `vyapaar-risk`)
-> **Source**: `/home/pmallapp/Devel/Finance/honba-workspace/honba-te`
-> **Target**: `/home/pmallapp/Devel/Finance/vyapaar-labs/vyapaar-exec`
+> **Source**: `honba-workspace/honba-te`
+> **Target**: `vyapaar-exec`
 > **Status**: Migration complete (all broker crates ported; plan 0001 wire-mapping verified).
 
 ## Sub-Crate Mapping Table
@@ -27,7 +27,7 @@
 ## Verification Commands
 
 ```bash
-cd /home/pmallapp/Devel/Finance/vyapaar-labs/vyapaar-exec
+# Run from the repository root
 grep -rn "#\[cfg(test)\]" crates/*/src/ && exit 1 || true
 cargo fmt --check
 cargo clippy --all-targets -- -D warnings

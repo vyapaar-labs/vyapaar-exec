@@ -3,7 +3,7 @@
 Verification commands for the `honba-te → vyapaar-exec` migration:
 
 ```bash
-cd /home/pmallapp/Devel/Finance/vyapaar-labs/vyapaar-exec
+# Run from the repository root
 grep -rn "#\[cfg(test)\]" crates/*/src/ && exit 1 || true
 cargo fmt --check
 cargo clippy --all-targets -- -D warnings
