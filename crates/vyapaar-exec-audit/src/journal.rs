@@ -20,6 +20,7 @@
 //! > external C library; the fsynced JSONL segment WAL delivers the same
 //! > append-only, fsync-per-entry durability with a human-inspectable
 //! > replay format. Documented here instead of silently substituting.
+//! > Stand-in for vyapaar-exec/docs/gaps/0002-audit-journal-storage.md.
 //!
 //! # Zero-clock purity
 //!
